@@ -1,10 +1,8 @@
-import QtQuick 2.0;
+import QtQuick 2.0
+import GoExtensions 1.0
 
-Canvas {
+GoRect {
     width: 640
     height: 480
-    id: canvas
-    property color strokeStyle:  Qt.darker(fillStyle, 1.4)
-    property color fillStyle: "#b40000" // red
-    onPaint: relations.paintRelations(canvas)
+
 }

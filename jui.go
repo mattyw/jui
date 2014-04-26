@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"gopkg.in/qml.v0"
+	"gopkg.in/qml.v0/gl"
 	"os"
 )
 
@@ -13,26 +14,58 @@ func main() {
 	}
 }
 
+type GoRect struct {
+	qml.Object
+	Relations []Service
+}
+
+func (r *GoRect) Paint(p *qml.Painter) {
+	gl.LineWidth(2.5)
+	gl.Color4f(0.0, 0.0, 0.0, 1.0)
+	gl.Begin(gl.LINES)
+	for _, s := range r.Relations {
+		fmt.Println(s)
+		x := gl.Float(s.x)
+		y := gl.Float(s.y)
+
+		gl.Vertex2f(0, 0)
+		gl.Vertex2f(x, y)
+		gl.Vertex2f(x, 0)
+		gl.Vertex2f(0, y)
+	}
+	gl.End()
+}
+
 type Service struct {
 	Name string
+	ctx  *qml.Context
+	obj  qml.Object
+	x    int
+	y    int
 }
 
-type Relations struct {
-}
-
-func (r *Relations) PaintRelations(canvas *qml.Common) {
-	fmt.Println("painting")
-	_ = canvas.Call("getContext", "2D")
-	//ctx.Call("moveTo", 0, 0)
-
-}
-
-func newService(engine *qml.Engine, rect qml.Object, win *qml.Window, base qml.Object, name string) {
-	ctx := engine.Context().Spawn()
+func newService(name string, engine *qml.Engine, rect qml.Object) Service {
 	s := Service{Name: name}
-	ctx.SetVar("service", &s)
-	obj := rect.Create(ctx)
-	obj.Set("parent", win.Root())
+	s.ctx = engine.Context().Spawn()
+	s.obj = rect.Create(s.ctx)
+	return s
+}
+
+func (s *Service) Draw(rect qml.Object, win *qml.Window) {
+	s.ctx.SetVar("service", s)
+	s.obj.Set("parent", win.Root())
+}
+
+func (s *Service) NewPos(x, y int) {
+	fmt.Printf("new pos %v %v\n", x, y)
+	s.x = x
+	s.y = y
+}
+
+func (s *Service) Coords() (gl.Float, gl.Float) {
+	x := gl.Float(s.obj.Int("x"))
+	y := gl.Float(s.obj.Int("y"))
+	return x, y
 }
 
 func run() error {
@@ -40,22 +73,31 @@ func run() error {
 
 	engine := qml.NewEngine()
 
-	base, err := engine.LoadFile("base.qml")
-	if err != nil {
-		return err
-	}
 	rect, err := engine.LoadFile("rect.qml")
 	if err != nil {
 		return err
 	}
 
-	win := base.CreateWindow(nil)
-	for i := 0; i < 2; i++ {
-		newService(engine, rect, win, base, "a")
+	s1 := newService("a", engine, rect)
+	s2 := newService("b", engine, rect)
+	services := []Service{s1, s2}
+	qml.RegisterTypes("GoExtensions", 1, 0, []qml.TypeSpec{{
+
+		Init: func(r *GoRect, obj qml.Object) {
+			r.Object = obj
+			r.Relations = services
+		},
+	}})
+
+	base, err := engine.LoadFile("base.qml")
+	if err != nil {
+		return err
 	}
-	ctx := engine.Context()
-	relations := Relations{}
-	ctx.SetVar("relations", &relations)
+
+	win := base.CreateWindow(nil)
+	for _, s := range services {
+		s.Draw(rect, win)
+	}
 
 	win.Show()
 	win.Wait()
