@@ -17,6 +17,16 @@ type Service struct {
 	Name string
 }
 
+type Relations struct {
+}
+
+func (r *Relations) PaintRelations(canvas *qml.Common) {
+	fmt.Println("painting")
+	_ = canvas.Call("getContext", "2D")
+	//ctx.Call("moveTo", 0, 0)
+
+}
+
 func newService(engine *qml.Engine, rect qml.Object, win *qml.Window, base qml.Object, name string) {
 	ctx := engine.Context().Spawn()
 	s := Service{Name: name}
@@ -40,9 +50,13 @@ func run() error {
 	}
 
 	win := base.CreateWindow(nil)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2; i++ {
 		newService(engine, rect, win, base, "a")
 	}
+	ctx := engine.Context()
+	relations := Relations{}
+	ctx.SetVar("relations", &relations)
+
 	win.Show()
 	win.Wait()
 
