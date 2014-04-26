@@ -17,7 +17,7 @@ type Service struct {
 	Name string
 }
 
-func newService(engine *qml.Engine, rect qml.Object, win *qml.Window, name string) {
+func newService(engine *qml.Engine, rect qml.Object, win *qml.Window, base qml.Object, name string) {
 	ctx := engine.Context().Spawn()
 	s := Service{Name: name}
 	ctx.SetVar("service", &s)
@@ -40,9 +40,9 @@ func run() error {
 	}
 
 	win := base.CreateWindow(nil)
-	newService(engine, rect, win, "a")
-	newService(engine, rect, win, "b")
-
+	for i := 0; i < 10; i++ {
+		newService(engine, rect, win, base, "a")
+	}
 	win.Show()
 	win.Wait()
 

@@ -1,8 +1,8 @@
 import QtQuick 2.0
 
 Rectangle {
-	//anchors.centerIn: parent
     Text {
+        anchors.centerIn: parent
         text: service.name
     }
 	width: 100
