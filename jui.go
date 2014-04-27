@@ -14,9 +14,14 @@ func main() {
 	}
 }
 
+type Relation struct {
+	origin Service
+	end    Service
+}
+
 type GoRect struct {
 	qml.Object
-	Relations []Service
+	Relations []Relation
 }
 
 func (r *GoRect) Paint(p *qml.Painter) {
@@ -25,13 +30,15 @@ func (r *GoRect) Paint(p *qml.Painter) {
 	gl.Begin(gl.LINES)
 	for _, s := range r.Relations {
 		fmt.Println(s)
-		x := gl.Float(s.x)
-		y := gl.Float(s.y)
+		ox := gl.Float(s.origin.x)
+		oy := gl.Float(s.origin.x)
+		ex := gl.Float(s.end.y)
+		ey := gl.Float(s.end.y)
 
-		gl.Vertex2f(0, 0)
-		gl.Vertex2f(x, y)
-		gl.Vertex2f(x, 0)
-		gl.Vertex2f(0, y)
+		gl.Vertex2f(ex, ey)
+		gl.Vertex2f(ox, oy)
+		gl.Vertex2f(ox, ey)
+		gl.Vertex2f(ex, oy)
 	}
 	gl.End()
 }
@@ -81,11 +88,13 @@ func run() error {
 	s1 := newService("a", engine, rect)
 	s2 := newService("b", engine, rect)
 	services := []Service{s1, s2}
+	relation := Relation{s1, s2}
+	relations := []Relation{relation}
 	qml.RegisterTypes("GoExtensions", 1, 0, []qml.TypeSpec{{
 
 		Init: func(r *GoRect, obj qml.Object) {
 			r.Object = obj
-			r.Relations = services
+			r.Relations = relations
 		},
 	}})
 
