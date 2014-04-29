@@ -3,6 +3,6 @@ import GoExtensions 1.0
 
 GoRect {
     id: canvas
-    width: 640
-    height: 480
+    width: 800
+    height: 600
 }

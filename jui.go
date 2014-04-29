@@ -1,14 +1,24 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/mattyw/jui/status"
 	"gopkg.in/qml.v0"
 	"gopkg.in/qml.v0/gl"
+	"io/ioutil"
 	"os"
+	"strings"
+)
+
+var (
+	deployerFile = flag.String("file", "", "The deployer file to read from")
+	deployerName = flag.String("name", "", "The name of the deployer config to use")
 )
 
 func main() {
-	if err := run(); err != nil {
+	flag.Parse()
+	if err := run(*deployerFile, *deployerName); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -25,7 +35,6 @@ type GoRect struct {
 }
 
 func (r *GoRect) Paint(p *qml.Painter) {
-	fmt.Println("Painting")
 	gl.LineWidth(2.5)
 	gl.Color4f(0.0, 0.0, 0.0, 1.0)
 	gl.Begin(gl.LINES)
@@ -34,8 +43,6 @@ func (r *GoRect) Paint(p *qml.Painter) {
 		oy := gl.Float(s.origin.y)
 		ex := gl.Float(s.end.x)
 		ey := gl.Float(s.end.y)
-		fmt.Println(ox, oy)
-		fmt.Println(ex, ey)
 
 		gl.Vertex2f(ox, oy)
 		gl.Vertex2f(ex, ey)
@@ -56,6 +63,7 @@ func newService(name string, engine *qml.Engine, rect qml.Object) *Service {
 	s := Service{Name: name}
 	s.ctx = engine.Context().Spawn()
 	s.obj = rect.Create(s.ctx)
+	s.y = 600 //opengl and qml y seems to be flipped
 	return &s
 }
 
@@ -65,10 +73,8 @@ func (s *Service) Draw(rect qml.Object, win *qml.Window) {
 }
 
 func (s *Service) NewPos(x, y int) {
-	fmt.Printf("new pos %v %v %v\n", x, y, s.canvas)
 	s.x = x
 	s.y = y
-	fmt.Println(s.canvas)
 	s.canvas.Call("update")
 }
 
@@ -78,7 +84,7 @@ func (s *Service) Coords() (gl.Float, gl.Float) {
 	return x, y
 }
 
-func run() error {
+func run(deployerFile, deployerName string) error {
 	qml.Init(nil)
 
 	engine := qml.NewEngine()
@@ -88,13 +94,67 @@ func run() error {
 		return err
 	}
 
+	services := map[string]*Service{}
+	relations := []Relation{}
+
+	if deployerFile == "" {
+		fmt.Println("juju status")
+		var env status.JujuStatus
+		env, err = status.GetStatus()
+		if err != nil {
+			return err
+		}
+		// build the services
+		for name, _ := range env.Services {
+			s := newService(name, engine, rect)
+			services[name] = s
+		}
+
+		// build the relations
+		for sName, service := range env.Services {
+			for _, r := range service.Relations {
+				for _, name := range r {
+					relations = append(relations, Relation{services[sName], services[name]})
+				}
+			}
+		}
+	} else {
+		fmt.Println("deployer")
+		data, err := ioutil.ReadFile(deployerFile)
+		if err != nil {
+			return err
+		}
+		env, err := status.StatusFromDeployer(deployerName, data)
+		fmt.Println(env)
+		if err != nil {
+			return err
+		}
+		// build the services
+		for name, _ := range env.Services {
+			s := newService(name, engine, rect)
+			services[name] = s
+		}
+
+		// build the relations
+		fmt.Printf("FFFFFF %v\n", env.Relations)
+		for _, r := range env.Relations {
+			fmt.Printf("%v %v\n", r[0], r[1])
+			r[0] = strings.Split(r[0], ":")[0] //HACK
+			r[1] = strings.Split(r[1], ":")[0] //HACK
+			rA, ok := services[r[0]]
+			if !ok {
+				continue
+			}
+			rB, ok := services[r[1]]
+			if !ok {
+				continue
+			}
+			relations = append(relations, Relation{rA, rB})
+		}
+	}
+
 	var canvas *GoRect
 
-	s1 := newService("a", engine, rect)
-	s2 := newService("b", engine, rect)
-	services := []*Service{s1, s2}
-	relation := Relation{s1, s2}
-	relations := []Relation{relation}
 	qml.RegisterTypes("GoExtensions", 1, 0, []qml.TypeSpec{{
 
 		Init: func(r *GoRect, obj qml.Object) {
@@ -105,7 +165,6 @@ func run() error {
 			// attatch the canvas for updating - yuck!
 			for _, service := range services {
 				service.canvas = canvas
-				fmt.Println(canvas)
 			}
 		},
 	}})
