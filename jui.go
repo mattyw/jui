@@ -15,8 +15,8 @@ func main() {
 }
 
 type Relation struct {
-	origin Service
-	end    Service
+	origin *Service
+	end    *Service
 }
 
 type GoRect struct {
@@ -25,37 +25,38 @@ type GoRect struct {
 }
 
 func (r *GoRect) Paint(p *qml.Painter) {
+	fmt.Println("Painting")
 	gl.LineWidth(2.5)
 	gl.Color4f(0.0, 0.0, 0.0, 1.0)
 	gl.Begin(gl.LINES)
 	for _, s := range r.Relations {
-		fmt.Println(s)
 		ox := gl.Float(s.origin.x)
-		oy := gl.Float(s.origin.x)
-		ex := gl.Float(s.end.y)
+		oy := gl.Float(s.origin.y)
+		ex := gl.Float(s.end.x)
 		ey := gl.Float(s.end.y)
+		fmt.Println(ox, oy)
+		fmt.Println(ex, ey)
 
-		gl.Vertex2f(ex, ey)
 		gl.Vertex2f(ox, oy)
-		gl.Vertex2f(ox, ey)
-		gl.Vertex2f(ex, oy)
+		gl.Vertex2f(ex, ey)
 	}
 	gl.End()
 }
 
 type Service struct {
-	Name string
-	ctx  *qml.Context
-	obj  qml.Object
-	x    int
-	y    int
+	Name   string
+	ctx    *qml.Context
+	obj    qml.Object
+	x      int
+	y      int
+	canvas *GoRect
 }
 
-func newService(name string, engine *qml.Engine, rect qml.Object) Service {
+func newService(name string, engine *qml.Engine, rect qml.Object) *Service {
 	s := Service{Name: name}
 	s.ctx = engine.Context().Spawn()
 	s.obj = rect.Create(s.ctx)
-	return s
+	return &s
 }
 
 func (s *Service) Draw(rect qml.Object, win *qml.Window) {
@@ -64,9 +65,11 @@ func (s *Service) Draw(rect qml.Object, win *qml.Window) {
 }
 
 func (s *Service) NewPos(x, y int) {
-	fmt.Printf("new pos %v %v\n", x, y)
+	fmt.Printf("new pos %v %v %v\n", x, y, s.canvas)
 	s.x = x
 	s.y = y
+	fmt.Println(s.canvas)
+	s.canvas.Call("update")
 }
 
 func (s *Service) Coords() (gl.Float, gl.Float) {
@@ -85,16 +88,25 @@ func run() error {
 		return err
 	}
 
+	var canvas *GoRect
+
 	s1 := newService("a", engine, rect)
 	s2 := newService("b", engine, rect)
-	services := []Service{s1, s2}
+	services := []*Service{s1, s2}
 	relation := Relation{s1, s2}
 	relations := []Relation{relation}
 	qml.RegisterTypes("GoExtensions", 1, 0, []qml.TypeSpec{{
 
 		Init: func(r *GoRect, obj qml.Object) {
+			fmt.Println("registering")
 			r.Object = obj
 			r.Relations = relations
+			canvas = r
+			// attatch the canvas for updating - yuck!
+			for _, service := range services {
+				service.canvas = canvas
+				fmt.Println(canvas)
+			}
 		},
 	}})
 
