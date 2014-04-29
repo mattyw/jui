@@ -13,12 +13,12 @@ import (
 
 var (
 	deployerFile = flag.String("file", "", "The deployer file to read from")
-	deployerName = flag.String("name", "", "The name of the deployer config to use")
+	bundle       = flag.String("bundle", "", "The bundle to use")
 )
 
 func main() {
 	flag.Parse()
-	if err := run(*deployerFile, *deployerName); err != nil {
+	if err := run(*deployerFile, *bundle); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -73,8 +73,9 @@ func (s *Service) Draw(rect qml.Object, win *qml.Window) {
 }
 
 func (s *Service) NewPos(x, y int) {
-	s.x = x
-	s.y = y
+	// Magic number for the sweet spot for drawing lines
+	s.x = x + 40
+	s.y = s.canvas.Int("height") - (y + 40)
 	s.canvas.Call("update")
 }
 
@@ -84,7 +85,7 @@ func (s *Service) Coords() (gl.Float, gl.Float) {
 	return x, y
 }
 
-func run(deployerFile, deployerName string) error {
+func run(deployerFile, bundle string) error {
 	qml.Init(nil)
 
 	engine := qml.NewEngine()
@@ -124,7 +125,7 @@ func run(deployerFile, deployerName string) error {
 		if err != nil {
 			return err
 		}
-		env, err := status.StatusFromDeployer(deployerName, data)
+		env, err := status.StatusFromDeployer(bundle, data)
 		fmt.Println(env)
 		if err != nil {
 			return err

@@ -12,6 +12,6 @@ Rectangle {
         id: mouseArea
         anchors.fill: parent
         drag.target: parent
-        onPositionChanged: service.newPos(parent.x + 40, 550 - parent.y)
+        onPositionChanged: service.newPos(parent.x, parent.y)
     }
 }
